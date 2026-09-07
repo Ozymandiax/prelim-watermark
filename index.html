@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prelim PDF Watermark</title>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
-    :root { --ink:#1c1917; --muted:#78716c; --paper:#fffaf3; --line:#e7e0d6; --accent:#c0392b; }
+    :root { --ink:#1c1917; --muted:#78716c; --paper:#fffaf3; --line:#e7e0d6; --accent:#4a4a4a; }
     * { box-sizing: border-box; }
     body { margin:0; font-family: Georgia, "Iowan Old Style", serif; color:var(--ink); background:var(--paper); }
     .bg { position:fixed; inset:0; pointer-events:none; background:
-      radial-gradient(900px 400px at 10% -10%, #f3d6cf55, transparent 60%),
+      radial-gradient(900px 400px at 10% -10%, #ddd8d055, transparent 60%),
       radial-gradient(700px 360px at 100% 0%, #ead9c455, transparent 55%); }
-    main { position:relative; max-width:720px; margin:0 auto; padding:56px 24px 80px; }
+    main { position:relative; max-width:740px; margin:0 auto; padding:56px 24px 80px; }
     h1 { font-size:clamp(2.1rem,5vw,3.2rem); letter-spacing:-.03em; margin:8px 0 12px; }
-    .eyebrow { text-transform:uppercase; letter-spacing:.16em; font-size:.72rem; color:var(--accent);
+    .eyebrow { text-transform:uppercase; letter-spacing:.16em; font-size:.72rem; color:#6b6b6b;
       font-family:ui-sans-serif,system-ui,sans-serif; margin:0; }
     .lede { color:var(--muted); font-size:1.12rem; line-height:1.5; margin:0 0 28px; }
     .card { background:#fff; border:1px solid var(--line); border-radius:20px; padding:22px;
@@ -22,17 +23,20 @@
     .drop { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
       min-height:150px; border:1.5px dashed #d6cbbd; border-radius:14px; background:#fbf7f1;
       cursor:pointer; text-align:center; padding:24px; }
-    .drop.hover { border-color:var(--accent); background:#f8eee9; }
-    .plus { font-size:2rem; color:var(--accent); line-height:1; }
+    .drop.hover { border-color:#888; background:#f3efe8; }
+    .plus { font-size:2rem; color:#666; line-height:1; }
     .drop small { color:var(--muted); font-family:ui-sans-serif,system-ui,sans-serif; font-size:.75rem; }
+    .files { list-style:none; margin:14px 0 0; padding:0; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.9rem; }
+    .files li { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+    .files button { background:none; color:#888; padding:0; font-weight:500; font-size:.8rem; }
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px 16px; margin:20px 0 14px; }
     label.field { display:flex; flex-direction:column; gap:6px; font-family:ui-sans-serif,system-ui,sans-serif;
       font-size:.78rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
     input[type=text], input[type=color] { border:1px solid var(--line); border-radius:10px; padding:10px 12px;
       font:16px/1.3 ui-sans-serif,system-ui,sans-serif; color:var(--ink); background:#fff; }
     input[type=color] { padding:4px; height:42px; }
-    input[type=range] { width:100%; accent-color:var(--accent); }
-    .check { display:flex; align-items:center; gap:10px; font-size:.95rem; }
+    input[type=range] { width:100%; accent-color:#666; }
+    .check { display:flex; align-items:center; gap:10px; font-size:.95rem; margin:6px 0; }
     .actions { display:flex; align-items:center; gap:16px; margin-top:18px; flex-wrap:wrap; }
     button { appearance:none; border:0; background:var(--accent); color:#fff;
       font:600 .95rem/1 ui-sans-serif,system-ui,sans-serif; padding:13px 18px; border-radius:999px; cursor:pointer; }
@@ -47,104 +51,209 @@
   <main>
     <p class="eyebrow">Hosted on GitHub Pages</p>
     <h1>Prelim watermark</h1>
-    <p class="lede">Drop a PDF. Every page is stamped with <strong>Prelim</strong>. The file is processed in your browser and is not stored on a server.</p>
+    <p class="lede">Stamp one large hatched <strong>Prelim</strong> mark on every page — the same style as a preliminary test report. Several PDFs at once are supported.</p>
     <section class="card">
       <label class="drop" id="dropzone" for="file">
-        <input id="file" type="file" accept="application/pdf,.pdf" hidden />
+        <input id="file" type="file" accept="application/pdf,.pdf" multiple hidden />
         <span class="plus">+</span>
-        <span id="drop-label">Drop a PDF here, or click to choose</span>
-        <small>One file at a time</small>
+        <span id="drop-label">Drop PDFs here, or click to choose</span>
+        <small>Multiple files allowed · processed in your browser</small>
       </label>
+      <ul class="files" id="file-list"></ul>
       <div class="grid">
         <label class="field">Text <input id="text" type="text" value="Prelim" maxlength="40" /></label>
-        <label class="field">Color <input id="color" type="color" value="#c0392b" /></label>
-        <label class="field">Opacity <input id="opacity" type="range" min="0.06" max="0.45" step="0.01" value="0.18" /></label>
-        <label class="field">Angle <input id="angle" type="range" min="-60" max="60" step="1" value="38" /></label>
+        <label class="field">Color <input id="color" type="color" value="#9a9a9a" /></label>
+        <label class="field">Opacity <input id="opacity" type="range" min="0.20" max="0.85" step="0.01" value="0.55" /></label>
+        <label class="field">Angle <input id="angle" type="range" min="20" max="70" step="1" value="52" /></label>
       </div>
-      <label class="check"><input id="tiled" type="checkbox" checked /> Repeat watermark across the page</label>
+      <label class="check"><input id="hatch" type="checkbox" checked /> Hatched fill (report style)</label>
+      <label class="check"><input id="tiled" type="checkbox" /> Repeat across the page</label>
       <div class="actions">
         <button id="run" type="button" disabled>Add watermark</button>
         <p id="status" role="status"></p>
       </div>
     </section>
+    <footer>Default mark matches a single diagonal gray “Prelim” with a grid fill.</footer>
   </main>
   <script>
-    const { PDFDocument, rgb, degrees, StandardFonts } = PDFLib;
+    const { PDFDocument, degrees } = PDFLib;
+
     const fileInput = document.getElementById("file");
     const dropzone = document.getElementById("dropzone");
     const dropLabel = document.getElementById("drop-label");
+    const fileList = document.getElementById("file-list");
     const runBtn = document.getElementById("run");
     const statusEl = document.getElementById("status");
-    let fileBytes = null, fileName = "document.pdf";
 
-    function hexToRgb(hex) {
-      const n = hex.replace("#", "");
-      return { r: parseInt(n.slice(0,2),16)/255, g: parseInt(n.slice(2,4),16)/255, b: parseInt(n.slice(4,6),16)/255 };
-    }
+    let files = [];
+
     function setStatus(msg) { statusEl.textContent = msg; }
-    function onFile(file) {
-      if (!file || (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"))) {
-        setStatus("Please choose a PDF file."); return;
-      }
-      fileName = file.name; dropLabel.textContent = file.name; setStatus("Ready.");
-      runBtn.disabled = true;
-      const reader = new FileReader();
-      reader.onload = () => { fileBytes = new Uint8Array(reader.result); runBtn.disabled = false; };
-      reader.readAsArrayBuffer(file);
-    }
-    ["dragenter","dragover"].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add("hover"); }));
-    ["dragleave","drop"].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove("hover"); }));
-    dropzone.addEventListener("drop", e => onFile(e.dataTransfer.files && e.dataTransfer.files[0]));
-    fileInput.addEventListener("change", () => onFile(fileInput.files[0]));
 
-    function stampPage(page, font, text, color, opacity, angle, tiled) {
+    function renderList() {
+      fileList.innerHTML = "";
+      files.forEach((entry, i) => {
+        const li = document.createElement("li");
+        const name = document.createElement("span");
+        name.textContent = entry.file.name;
+        const rm = document.createElement("button");
+        rm.type = "button";
+        rm.textContent = "Remove";
+        rm.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          files.splice(i, 1);
+          renderList();
+        });
+        li.append(name, rm);
+        fileList.appendChild(li);
+      });
+      dropLabel.textContent = files.length
+        ? files.length + " PDF" + (files.length > 1 ? "s" : "") + " selected"
+        : "Drop PDFs here, or click to choose";
+      runBtn.disabled = files.length === 0;
+    }
+
+    function addFiles(list) {
+      Array.from(list || []).forEach((file) => {
+        const ok = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        if (!ok) return;
+        if (files.some((f) => f.file.name === file.name && f.file.size === file.size)) return;
+        files.push({ file });
+      });
+      renderList();
+      setStatus(files.length ? "Ready." : "Please choose PDF files.");
+    }
+
+    ["dragenter", "dragover"].forEach((evt) => {
+      dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("hover"); });
+    });
+    ["dragleave", "drop"].forEach((evt) => {
+      dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("hover"); });
+    });
+    dropzone.addEventListener("drop", (e) => addFiles(e.dataTransfer.files));
+    fileInput.addEventListener("change", () => {
+      addFiles(fileInput.files);
+      fileInput.value = "";
+    });
+
+    function shade(hex, amt) {
+      const n = hex.replace("#", "");
+      const ch = (i) => Math.max(0, Math.min(255, parseInt(n.slice(i, i + 2), 16) * (1 + amt)));
+      const to = (v) => Math.round(v).toString(16).padStart(2, "0");
+      return "#" + to(ch(0)) + to(ch(2)) + to(ch(4));
+    }
+
+    function makeStampPng(text, hex, hatched) {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const fontSize = 280;
+      ctx.font = "bold " + fontSize + "px Helvetica, Arial, sans-serif";
+      const metrics = ctx.measureText(text);
+      const padX = 40, padY = 50;
+      const w = Math.ceil(metrics.width + padX * 2);
+      const h = Math.ceil(fontSize * 1.25 + padY * 2);
+      canvas.width = w;
+      canvas.height = h;
+      ctx.font = "bold " + fontSize + "px Helvetica, Arial, sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      const fill = hex || "#9a9a9a";
+      ctx.fillStyle = fill;
+      ctx.fillText(text, w / 2, h / 2 + fontSize * 0.04);
+      if (hatched) {
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.strokeStyle = shade(fill, -0.22);
+        ctx.lineWidth = 2;
+        const step = 7;
+        ctx.beginPath();
+        for (let x = 0; x <= w; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+        for (let y = 0; y <= h; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+        ctx.stroke();
+        ctx.globalCompositeOperation = "source-over";
+      }
+      return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/png"));
+    }
+
+    function placeStamp(page, img, angleDeg, opacity, tiled) {
       const { width, height } = page.getSize();
-      const size = Math.max(28, Math.min(width, height) * 0.12);
-      const drawOpts = { font, size, color: rgb(color.r, color.g, color.b), opacity, rotate: degrees(angle) };
-      const textW = font.widthOfTextAtSize(text, size);
+      const targetW = tiled ? Math.min(width, height) * 0.42 : Math.min(width * 0.92, height * 1.05);
+      const scale = targetW / img.width;
+      const w = img.width * scale;
+      const h = img.height * scale;
+      const rad = (angleDeg * Math.PI) / 180;
+      const cos = Math.cos(rad), sin = Math.sin(rad);
+
+      const drawAt = (cx, cy) => {
+        const x = cx - (w / 2) * cos + (h / 2) * sin;
+        const y = cy - (w / 2) * sin - (h / 2) * cos;
+        page.drawImage(img, { x, y, width: w, height: h, rotate: degrees(angleDeg), opacity });
+      };
+
       if (!tiled) {
-        page.drawText(text, { ...drawOpts, x: width/2 - textW/2, y: height/2 });
+        drawAt(width / 2, height * 0.42);
         return;
       }
-      const stepX = size * 4.4, stepY = size * 2.8;
-      const rad = angle * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
-      for (let row = -6; row <= 12; row++) {
-        for (let col = -6; col <= 12; col++) {
-          const lx = col * stepX + (row % 2 ? stepX/2 : 0) - width/2;
-          const ly = row * stepY - height/2;
-          page.drawText(text, {
-            ...drawOpts,
-            x: width/2 + lx*cos - ly*sin - textW/2,
-            y: height/2 + lx*sin + ly*cos
-          });
+      const stepX = w * 1.35;
+      const stepY = h * 3.2;
+      for (let row = -2; row <= 3; row++) {
+        for (let col = -2; col <= 3; col++) {
+          drawAt(width / 2 + col * stepX, height / 2 + row * stepY);
         }
       }
     }
 
+    async function stampOne(file, stampBlob, angle, opacity, tiled) {
+      const src = new Uint8Array(await file.arrayBuffer());
+      const pdf = await PDFDocument.load(src, { ignoreEncryption: true });
+      const img = await pdf.embedPng(await stampBlob.arrayBuffer());
+      pdf.getPages().forEach((page) => placeStamp(page, img, angle, opacity, tiled));
+      return pdf.save();
+    }
+
+    function downloadBlob(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     runBtn.addEventListener("click", async () => {
-      if (!fileBytes) return;
-      runBtn.disabled = true; setStatus("Stamping pages…");
+      if (!files.length) return;
+      runBtn.disabled = true;
+      const text = document.getElementById("text").value.trim() || "Prelim";
+      const color = document.getElementById("color").value;
+      const opacity = Number(document.getElementById("opacity").value);
+      const angle = Number(document.getElementById("angle").value);
+      const hatched = document.getElementById("hatch").checked;
+      const tiled = document.getElementById("tiled").checked;
       try {
-        const pdf = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
-        const font = await pdf.embedFont(StandardFonts.HelveticaBold);
-        const text = document.getElementById("text").value.trim() || "Prelim";
-        const color = hexToRgb(document.getElementById("color").value);
-        const opacity = Number(document.getElementById("opacity").value);
-        const angle = Number(document.getElementById("angle").value);
-        const tiled = document.getElementById("tiled").checked;
-        pdf.getPages().forEach(page => stampPage(page, font, text, color, opacity, angle, tiled));
-        const blob = new Blob([await pdf.save()], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName.replace(/\.pdf$/i, "") + "-prelim.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-        setStatus("Downloaded " + a.download);
+        setStatus("Building watermark…");
+        const stampBlob = await makeStampPng(text, color, hatched);
+        const outputs = [];
+        for (let i = 0; i < files.length; i++) {
+          setStatus("Stamping " + (i + 1) + " of " + files.length + "…");
+          const bytes = await stampOne(files[i].file, stampBlob, angle, opacity, tiled);
+          const name = files[i].file.name.replace(/\.pdf$/i, "") + "-prelim.pdf";
+          outputs.push({ name, bytes });
+        }
+        if (outputs.length === 1) {
+          downloadBlob(new Blob([outputs[0].bytes], { type: "application/pdf" }), outputs[0].name);
+          setStatus("Downloaded " + outputs[0].name);
+        } else {
+          const zip = new JSZip();
+          outputs.forEach((o) => zip.file(o.name, o.bytes));
+          const zipped = await zip.generateAsync({ type: "blob" });
+          downloadBlob(zipped, "prelim-watermarked.zip");
+          setStatus("Downloaded prelim-watermarked.zip (" + outputs.length + " files)");
+        }
       } catch (err) {
         console.error(err);
-        setStatus("Could not watermark this file. Try a PDF that is not password-locked.");
-      } finally { runBtn.disabled = false; }
+        setStatus("Could not watermark one of the files. Skip password-locked PDFs.");
+      } finally {
+        runBtn.disabled = files.length === 0;
+      }
     });
   </script>
 </body>
